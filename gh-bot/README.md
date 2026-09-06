@@ -1,9 +1,10 @@
 # gh-bot — overcommit-bot runbook
 
-Periodic research bot for `MKuckert/env`: reads open issues, generates a
-research comment with the local LLM (omlx), posts it as `overcommit-bot [bot]`
-via a GitHub App installation token. Runs **locally in the sandbox** — that is
-the point, so it can reach omlx.
+Periodic research bot (standalone): reads open issues from a target repo
+(default `MKuckert/env`, override with `GH_REPO`), generates a research comment
+with the local LLM (omlx), posts it as `overcommit-bot [bot]` via a GitHub App
+installation token. Runs **locally in the sandbox** — that is the point, so it
+can reach omlx. No dependency on any other repository.
 
 ## Layout
 
@@ -21,9 +22,9 @@ the point, so it can reach omlx.
 
 ## Credentials (all gitignored)
 
-- `.env` at repo root: `GH_APP_ID`, `GH_INSTALLATION_ID`, `OMLX_BASE_URL`, `OMLX_SETTINGS_FILE`
+- `.env` at repo root: `GH_APP_ID`, `GH_INSTALLATION_ID`, `OMLX_BASE_URL`, `OMLX_API_KEY`
 - `gh-bot/key.pem`: app private key (chmod 600)
-- omlx API key: read from `omlx/settings.json` (`auth.api_key`) — no copy kept
+- omlx API key: `OMLX_API_KEY` in `.env` (standalone — no external settings file needed)
 
 ## Scheduling (cron)
 
@@ -39,7 +40,7 @@ sessions — output contract, re-minting and security notes:
 ## Operations
 
 ```bash
-cd /workspace/env-gh-app/gh-bot
+cd /workspace/gh-bot/gh-bot
 node --test            # unit tests
 ../gh-bot/run.sh       # one real round (posts)
 DRY_RUN=1 ../gh-bot/run.sh   # one dry round (prints, no posts)

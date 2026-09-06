@@ -16,7 +16,7 @@ self-contained and safe to call from any context.
 Hourly, at the top of the hour, with a persistent log:
 
 ```cron
-0 * * * * /workspace/env-gh-app/gh-bot/run.sh >> /home/node/.local/state/overcommit-bot/cron.log 2>&1
+0 * * * * /workspace/gh-bot/gh-bot/run.sh >> /home/node/.local/state/overcommit-bot/cron.log 2>&1
 ```
 
 Check it with `crontab -l`. Remove the line to disable the bot — there is no
@@ -46,7 +46,7 @@ Log file: `/home/node/.local/state/overcommit-bot/cron.log` (append-only; rotate
 ## Manual operation
 
 ```bash
-cd /workspace/env-gh-app
+cd /workspace/gh-bot
 ./gh-bot/run.sh              # one real round (posts)
 DRY_RUN=1 ./gh-bot/run.sh    # one dry round — prints would-be comments, posts nothing
 ```

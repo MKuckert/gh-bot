@@ -20,7 +20,7 @@ TOK=$(gh-bot/token.sh)        # captures the token only
 ## Typical use in a session
 
 ```bash
-cd /workspace/env-gh-app
+cd /workspace/gh-bot
 export GITHUB_TOKEN=$(gh-bot/token.sh)
 
 git push ...                          # repo's credential helper reads $GITHUB_TOKEN
