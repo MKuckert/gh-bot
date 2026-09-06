@@ -1,0 +1,9 @@
+{
+  "name": "gh-bot",
+  "private": true,
+  "type": "module",
+  "description": "Local periodic research bot for MKuckert/env, authenticated via the overcommit-bot GitHub App",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}
