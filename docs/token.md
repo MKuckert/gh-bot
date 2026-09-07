@@ -23,13 +23,31 @@ TOK=$(token.sh)               # captures the token only
 cd /workspace/gh-bot
 export GITHUB_TOKEN=$(token.sh)
 
-git push ...                          # repo's credential helper reads $GITHUB_TOKEN
-gh issue list --repo MKuckert/env     # the gh CLI reads $GITHUB_TOKEN too
+gh issue list --repo MKuckert/env     # the gh CLI reads $GITHUB_TOKEN
 curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/rate_limit
 ```
 
 The token acts as `overcommit-bot [bot]` with the app's installation
 permissions (contents, issues, issue comments, pull requests).
+
+## Raw `git` commands
+
+The API and the `gh` CLI accept the token as a Bearer header or `$GITHUB_TOKEN`,
+but **git's smart-HTTP protocol does not**: `http.extraHeader="Authorization:
+Bearer …"` fails with `remote: invalid credentials`. Git needs Basic auth, so
+feed the token through an askpass helper — it never lands in argv or a URL:
+
+```bash
+export GITHUB_TOKEN=$(token.sh)
+printf '#!/bin/sh\necho "$GITHUB_TOKEN"\n' > .askpass.sh && chmod +x .askpass.sh
+export GIT_ASKPASS=$PWD/.askpass.sh
+git -c credential.helper= push origin main
+rm .askpass.sh
+```
+
+(`-c credential.helper=` disables stored helpers so the token stays in this
+shell only. Alternatively, configure a credential helper that reads
+`$GITHUB_TOKEN`, after which a plain `git push` works.)
 
 ## Lifetime and re-minting
 
