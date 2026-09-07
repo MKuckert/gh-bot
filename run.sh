@@ -2,7 +2,7 @@
 # run.sh — one bot round. Fail loud on missing credentials/config.
 set -euo pipefail
 
-cd "$(dirname "$0")/.."   # repo root
+cd "$(dirname "$0")"   # repo root
 
 # Cron runs with a minimal PATH; make sure node is findable (fail loud if not).
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -34,9 +34,9 @@ if (( ${#missing[@]} )); then
     echo "run.sh: missing env var(s): ${missing[*]} — expected in .env at repo root" >&2
     exit 1
 fi
-if [[ ! -f gh-bot/key.pem ]]; then
-    echo "run.sh: missing gh-bot/key.pem (app private key)" >&2
+if [[ ! -f key.pem ]]; then
+    echo "run.sh: missing key.pem (app private key)" >&2
     exit 1
 fi
 
-exec node gh-bot/bot.mjs "$@"
+exec node src/bot.mjs "$@"

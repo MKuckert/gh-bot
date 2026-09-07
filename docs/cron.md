@@ -1,4 +1,4 @@
-# Using the cron-triggered bot (`gh-bot/run.sh`)
+# Using the cron-triggered bot (`run.sh`)
 
 `run.sh` performs **one bot round**: list open issues → skip those already
 handled by a bot → generate a research comment with the local LLM (omlx) →
@@ -8,7 +8,7 @@ self-contained and safe to call from any context.
 ## Prerequisites (one-time)
 
 1. A cron daemon in the sandbox (the operator installs it; this container had none).
-2. Credentials in place (already done): `.env` at repo root + `gh-bot/key.pem`, both gitignored.
+2. Credentials in place (already done): `.env` + `key.pem` at repo root, both gitignored.
 3. omlx reachable — `OMLX_BASE_URL` in `.env` points at the LLM server as seen from this sandbox.
 
 ## Installing the cron entry
@@ -16,7 +16,7 @@ self-contained and safe to call from any context.
 Hourly, at the top of the hour, with a persistent log:
 
 ```cron
-0 * * * * /workspace/gh-bot/gh-bot/run.sh >> /home/node/.local/state/overcommit-bot/cron.log 2>&1
+0 * * * * /workspace/gh-bot/run.sh >> /home/node/.local/state/overcommit-bot/cron.log 2>&1
 ```
 
 Check it with `crontab -l`. Remove the line to disable the bot — there is no
@@ -27,7 +27,7 @@ daemon or state to stop.
 1. `run.sh` sets PATH, cd's to the repo root, sources `.env`.
 2. Missing `GH_APP_ID`/`GH_INSTALLATION_ID`/`key.pem` → **exit 1** with a message naming the missing item (visible in `cron.log`).
 3. **Overlap guard:** if a previous round still holds `~/.local/state/overcommit-bot/round.lock`, this tick logs "previous round still running — skipping" and exits 0. (A slow LLM can outlive an hourly tick; the lock prevents double-posting.)
-4. `node gh-bot/bot.mjs` runs the round; one LLM call per unhandled issue.
+4. `node src/bot.mjs` runs the round; one LLM call per unhandled issue.
 5. Round summary is logged, e.g.:
    `[overcommit-bot] round done: 6 posted, 0 skipped, 0 failed`
 
@@ -47,8 +47,8 @@ Log file: `/home/node/.local/state/overcommit-bot/cron.log` (append-only; rotate
 
 ```bash
 cd /workspace/gh-bot
-./gh-bot/run.sh              # one real round (posts)
-DRY_RUN=1 ./gh-bot/run.sh    # one dry round — prints would-be comments, posts nothing
+./run.sh              # one real round (posts)
+DRY_RUN=1 ./run.sh    # one dry round — prints would-be comments, posts nothing
 ```
 
 Use `DRY_RUN=1` after credential changes or before a known-bad LLM state.

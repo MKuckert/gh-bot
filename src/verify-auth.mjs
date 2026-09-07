@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { readFileSync } from "node:fs";
 
-const pem = readFileSync("gh-bot/key.pem", "utf8");
+const pem = readFileSync("key.pem", "utf8");
 const H = { Accept: "application/vnd.github+json", "User-Agent": "gh-integration-bot" };
 const appJwt = jwt.sign({}, pem, { algorithm: "RS256", issuer: process.env.GH_APP_ID, expiresIn: 540 });
 const res = await fetch(
