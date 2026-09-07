@@ -5,7 +5,7 @@
 import { pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AppAuth } from "./auth.mjs";
+import { createGitHubOctokit } from "./auth.mjs";
 import { GitHub } from "./github.mjs";
 import { generateResearchComment } from "./llm.mjs";
 
@@ -70,11 +70,11 @@ export async function runRound({ github, generate = generateResearchComment, dry
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const here = dirname(fileURLToPath(import.meta.url));
   const dryRun = process.env.DRY_RUN === "1";
-  const auth = new AppAuth({
+  const octokit = createGitHubOctokit({
     appId: process.env.GH_APP_ID,
     installationId: process.env.GH_INSTALLATION_ID,
     pemPath: process.env.KEY_PATH ?? join(here, "..", "key.pem"), // key lives at repo root
   });
-  const stats = await runRound({ github: new GitHub(auth), dryRun, log: (m) => console.log(`[overcommit-bot] ${m}`) });
+  const stats = await runRound({ github: new GitHub(octokit), dryRun, log: (m) => console.log(`[overcommit-bot] ${m}`) });
   if (stats.failed > 0) process.exit(1);
 }
