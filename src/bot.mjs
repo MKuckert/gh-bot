@@ -73,7 +73,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const auth = new AppAuth({
     appId: process.env.GH_APP_ID,
     installationId: process.env.GH_INSTALLATION_ID,
-    pemPath: join(here, "..", "key.pem"), // key lives at repo root
+    pemPath: process.env.KEY_PATH ?? join(here, "..", "key.pem"), // key lives at repo root
   });
   const stats = await runRound({ github: new GitHub(auth), dryRun, log: (m) => console.log(`[overcommit-bot] ${m}`) });
   if (stats.failed > 0) process.exit(1);

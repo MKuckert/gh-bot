@@ -2,40 +2,16 @@
 # token.sh — print a fresh GitHub App installation token (≤ 1 h) to stdout.
 #
 # Usage in other sessions:
-#   export GITHUB_TOKEN=$(token.sh)          # git push / gh CLI then just work
-# (the repo's git credential helper and the gh CLI both read $GITHUB_TOKEN)
+#   export GITHUB_TOKEN=$(token.sh)   # gh CLI and curl read $GITHUB_TOKEN
+# (raw git needs Basic auth — see docs/token.md → "Raw git commands")
 #
 # Only the token goes to stdout; diagnostics and expiry go to stderr.
 set -euo pipefail
 
 cd "$(dirname "$0")"   # repo root
-if [[ -f .env ]]; then set -a; source ./.env; set +a; fi
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
-missing=()
-for v in GH_APP_ID GH_INSTALLATION_ID; do
-    [[ -n "${!v:-}" ]] || missing+=("$v")
-done
-if (( ${#missing[@]} )); then
-    echo "token.sh: missing env var(s): ${missing[*]} — expected in .env at repo root" >&2
-    exit 1
-fi
-if [[ ! -f key.pem ]]; then
-    echo "token.sh: missing key.pem (app private key)" >&2
-    exit 1
-fi
+# Credentials + key (fail loud, names the missing item); exports KEY_PATH.
+source lib/env.sh
 
-node -e '
-import("./src/auth.mjs").then(async ({ AppAuth }) => {
-    const auth = new AppAuth({
-        appId: process.env.GH_APP_ID,
-        installationId: process.env.GH_INSTALLATION_ID,
-        pemPath: "key.pem",
-    });
-    const token = await auth.getToken();
-    console.error(`token.sh: valid until ${new Date(auth.cached.expiresAt * 1000).toISOString()}`);
-    console.log(token);
-}).catch((err) => {
-    console.error(`token.sh: ${err.message}`);
-    process.exit(1);
-});'
+exec node src/auth.mjs --token

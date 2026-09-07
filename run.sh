@@ -20,23 +20,7 @@ if ! flock -n 9; then
     exit 0
 fi
 
-# Load local credentials (gitignored). direnv would do this in an interactive shell;
-# launchd/cron contexts need it explicitly.
-if [[ -f .env ]]; then
-    set -a; source ./.env; set +a
-fi
-
-missing=()
-for v in GH_APP_ID GH_INSTALLATION_ID; do
-    [[ -n "${!v:-}" ]] || missing+=("$v")
-done
-if (( ${#missing[@]} )); then
-    echo "run.sh: missing env var(s): ${missing[*]} — expected in .env at repo root" >&2
-    exit 1
-fi
-if [[ ! -f key.pem ]]; then
-    echo "run.sh: missing key.pem (app private key)" >&2
-    exit 1
-fi
+# Credentials + key (fail loud, names the missing item); exports KEY_PATH.
+source lib/env.sh
 
 exec node src/bot.mjs "$@"

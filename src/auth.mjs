@@ -3,6 +3,7 @@
 
 import jwt from "jsonwebtoken";
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 export const JWT_TTL_SECONDS = 540; // GitHub rejects exp > 10 min
 
@@ -100,5 +101,29 @@ export class AppAuth {
       );
     }
     return res.json();
+  }
+}
+
+// --- CLI (only when executed directly) --------------------------------------
+// node src/auth.mjs --token  → prints a fresh installation token to stdout,
+// expiry to stderr. Needs GH_APP_ID, GH_INSTALLATION_ID and KEY_PATH in env
+// (lib/env.sh provides all three; token.sh is the shell wrapper).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv[2] !== "--token") {
+    console.error("usage: node src/auth.mjs --token");
+    process.exit(2);
+  }
+  try {
+    const auth = new AppAuth({
+      appId: process.env.GH_APP_ID,
+      installationId: process.env.GH_INSTALLATION_ID,
+      pemPath: process.env.KEY_PATH,
+    });
+    const token = await auth.getToken();
+    console.error(`auth: valid until ${new Date(auth.cached.expiresAt * 1000).toISOString()}`);
+    console.log(token);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
   }
 }

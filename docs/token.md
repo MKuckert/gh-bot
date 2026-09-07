@@ -3,13 +3,14 @@
 `token.sh` mints a **GitHub App installation token** (valid ≤ 1 h, 5000
 requests/h) for this repo's app installation and prints it to stdout. It is
 how other agent sessions in this sandbox get GitHub access **without** the
-private key or a personal PAT: the script reads `key.pem` itself, signs
-the app JWT, and exchanges it for the installation token.
+private key or a personal PAT: the script loads credentials via `lib/env.sh`
+and mints through `src/auth.mjs --token` (JWT signed with `key.pem`,
+exchanged for the installation token).
 
 ## Output contract
 
 - **stdout:** exactly one line — the token (`ghs_…`).
-- **stderr:** expiry timestamp (`token.sh: valid until <ISO8601>`) and any diagnostics.
+- **stderr:** expiry timestamp (`auth: valid until <ISO8601>`) and any diagnostics.
 
 This split is deliberate so shell capture stays clean:
 
@@ -60,9 +61,9 @@ shell only. Alternatively, configure a credential helper that reads
 
 | Symptom | Cause |
 |---|---|
-| `token.sh: missing env var(s): GH_APP_ID …` (exit 1) | `.env` absent or incomplete at repo root |
-| `token.sh: missing key.pem` (exit 1) | private key not in place |
-| `token.sh: token mint failed (HTTP 401): …` (exit 1) | key/ID mismatch, clock skew, or GitHub rejecting the JWT — read the body |
+| `env.sh: missing env var(s): GH_APP_ID …` (exit 1) | `.env` absent or incomplete at repo root |
+| `env.sh: missing key.pem` (exit 1) | private key not in place |
+| `AppAuth: token mint failed (HTTP 401): …` (exit 1) | key/ID mismatch, clock skew, or GitHub rejecting the JWT — read the body |
 
 ## Security notes
 

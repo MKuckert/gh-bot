@@ -39,7 +39,7 @@ daemon or state to stop.
 | Some issues failed (LLM down, API error) | 1 | `ERROR #<n>: <reason>` per issue; other issues still processed |
 | Cannot even list issues (auth, network) | 1 | `ERROR: cannot list open issues: …` |
 | Previous round still running | 0 | `previous round still running — skipping this tick` |
-| Missing credentials | 1 | `run.sh: missing …` |
+| Missing credentials | 1 | `env.sh: missing …` |
 
 Log file: `/home/node/.local/state/overcommit-bot/cron.log` (append-only; rotate as you see fit).
 

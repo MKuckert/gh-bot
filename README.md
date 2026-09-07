@@ -16,6 +16,7 @@ can reach omlx. No dependency on any other repository.
 | `src/bot.mjs` | One round: skip-check → LLM → post. `DRY_RUN=1` prints instead of posting |
 | `run.sh` | **The cron target.** Loads `.env`, checks credentials, flock guard, runs one round |
 | `token.sh` | Prints a fresh installation token (≤ 1 h) to stdout — for git/gh in other sessions |
+| `lib/env.sh` | Shared bootstrap for the shell entry points: loads `.env`, checks credentials, exports `KEY_PATH` |
 | `src/verify-auth.mjs` | Live end-to-end auth check (app metadata, token mint, issue read) |
 | `src/*.test.mjs` | Unit tests — `node --test` at the repo root |
 | `docs/cron.md`, `docs/token.md` | Usage guides for the cron target and token minting |
