@@ -1,6 +1,6 @@
 # lib/env.sh — shared bootstrap for the shell entry points (run.sh, token.sh).
 # Source it from a repo-root script; on success you are at the repo root with:
-#   GH_APP_ID, GH_INSTALLATION_ID  loaded from .env (if present)
+#   GH_APP_ID, GH_INSTALLATION_ID, MODEL_*  loaded from .env (if present)
 #   KEY_PATH                       absolute path to the app private key
 # Missing pieces fail loud: exit 1 with a message naming the item.
 
@@ -13,7 +13,7 @@ if [[ -f .env ]]; then
 fi
 
 missing=()
-for v in GH_APP_ID GH_INSTALLATION_ID; do
+for v in GH_APP_ID GH_INSTALLATION_ID MODEL_BASE_URL MODEL_NAME MODEL_API_KEY; do
     [[ -n "${!v:-}" ]] || missing+=("$v")
 done
 if (( ${#missing[@]} )); then

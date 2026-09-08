@@ -1,7 +1,7 @@
 # Using the cron-triggered bot (`run.sh`)
 
 `run.sh` performs **one bot round**: list open issues → skip those already
-handled by a bot → generate a research comment with the local LLM (omlx) →
+handled by a bot → generate a research comment with the local LLM (OpenAI-compatible model API) →
 post it as `overcommit-bot [bot]`. Cron is the trigger; `run.sh` is fully
 self-contained and safe to call from any context.
 
@@ -9,7 +9,7 @@ self-contained and safe to call from any context.
 
 1. A cron daemon in the sandbox (the operator installs it; this container had none).
 2. Credentials in place (already done): `.env` + `key.pem` at repo root, both gitignored.
-3. omlx reachable — `OMLX_BASE_URL` in `.env` points at the LLM server as seen from this sandbox.
+3. Model reachable — `MODEL_BASE_URL` in `.env` points at the model server as seen from this sandbox.
 
 ## Installing the cron entry
 
@@ -55,6 +55,6 @@ Use `DRY_RUN=1` after credential changes or before a known-bad LLM state.
 
 ## Failure policy (by design)
 
-- The bot **never posts placeholder or fabricated content** — if omlx fails, the issue is counted as failed and the round exits non-zero.
+- The bot **never posts placeholder or fabricated content** — if the model fails, the issue is counted as failed and the round exits non-zero.
 - An issue whose *last* comment was authored by any `*[bot]` account is skipped (author check; the `🤖 **[overcommit-bot]**` marker in bodies is a human-readable fallback only).
 - One issue failing never stops the others, but the round still exits non-zero so cron's log shows it.

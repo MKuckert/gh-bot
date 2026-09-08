@@ -2,9 +2,9 @@
 
 Periodic research bot (standalone): reads open issues from a target repo
 (default `MKuckert/env`, override with `GH_REPO`), generates a research comment
-with the local LLM (omlx), posts it as `overcommit-bot [bot]` via a GitHub App
-installation token. Runs **locally in the sandbox** — that is the point, so it
-can reach omlx. No dependency on any other repository.
+with the local LLM (OpenAI-compatible model API), posts it as `overcommit-bot [bot]`
+via a GitHub App installation token. Runs **locally in the sandbox** — that is
+the point, so it can reach the local model. No dependency on any other repository.
 
 ## Layout
 
@@ -12,7 +12,9 @@ can reach omlx. No dependency on any other repository.
 |---|---|
 | `src/auth.mjs` | GitHub App auth via `@octokit/auth-app` — JWT, token mint/cache, 401 handling |
 | `src/github.mjs` | Thin REST helpers on Octokit (list issues, comments, post) |
-| `src/llm.mjs` | omlx client (`/v1/chat/completions`), prompt builder |
+| `src/llm.mjs` | model client (`/v1/chat/completions`, OpenAI-compatible), prompt builder |
+| `prompts/bot_prompt.md` | user-prompt template (edit to change the comment style) |
+| `prompts/system.md` | system prompt sent with every request |
 | `src/bot.mjs` | One round: skip-check → LLM → post. `DRY_RUN=1` prints instead of posting |
 | `run.sh` | **The cron target.** Loads `.env`, checks credentials, flock guard, runs one round |
 | `token.sh` | Prints a fresh installation token (≤ 1 h) to stdout — for git/gh in other sessions |
@@ -24,9 +26,9 @@ can reach omlx. No dependency on any other repository.
 
 ## Credentials (all gitignored)
 
-- `.env` at repo root: `GH_APP_ID`, `GH_INSTALLATION_ID`, `OMLX_BASE_URL`, `OMLX_API_KEY`
+- `.env` at repo root: `GH_APP_ID`, `GH_INSTALLATION_ID`, `MODEL_BASE_URL`, `MODEL_NAME`, `MODEL_API_KEY`
 - `key.pem` at repo root: app private key (chmod 600)
-- omlx API key: `OMLX_API_KEY` in `.env` (standalone — no external settings file needed)
+- model API key: `MODEL_API_KEY` in `.env` (standalone — no external settings file needed)
 
 ## Scheduling (cron)
 
@@ -58,6 +60,6 @@ node src/verify-auth.mjs   # live auth-chain check, no side effects
 ## Failure policy (fail loud, never fake)
 
 - Missing credentials → non-zero exit, message names the missing item.
-- omlx unreachable / non-2xx → issue counted as failed, round exits non-zero; **no** placeholder comment is ever posted.
+- model unreachable / non-2xx → issue counted as failed, round exits non-zero; **no** placeholder comment is ever posted.
 - GitHub 401 → one retry (token replication delay, within 5 s of mint); a persistent 401 or an expired token aborts the round (tokens re-mint on expiry).
 - One issue failing never stops the others, but the round still exits non-zero.
