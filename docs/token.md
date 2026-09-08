@@ -50,6 +50,20 @@ rm .askpass.sh
 shell only. Alternatively, configure a credential helper that reads
 `$GITHUB_TOKEN`, after which a plain `git push` works.)
 
+> **Warning — do not pre-check push permission via the REST API.**
+> `gh api repos/<owner>/<repo> -q .permissions` (or the repo object's
+> `permissions` field) reports **all false** for repos that a minted
+> installation token can actually push to. In this setup, that check said
+> `"push":false` for `MKuckert/gh-bot` while the askpass push above
+> succeeded. Do not conclude "no access" from that endpoint — and do not
+> fall back to asking the user for a PAT on its basis. The only reliable
+> test is attempting the push (or an API write) with the token.
+>
+> Related: `GET /app/installations` lists one installation per *account*
+> (here a single entry for `MKuckert`), not one per repo — the same
+> installation covers multiple repos of that account. Do not infer which
+> repos it can write to from the list length.
+
 ## Lifetime and re-minting
 
 - Tokens expire within the hour — check the stderr line for the exact time.
@@ -64,6 +78,8 @@ shell only. Alternatively, configure a credential helper that reads
 | `env.sh: missing env var(s): GH_APP_ID …` (exit 1) | `.env` absent or incomplete at repo root |
 | `env.sh: missing key.pem` (exit 1) | private key not in place |
 | octokit `HttpError` / 401 on mint (exit 1) | key/ID mismatch, clock skew, or GitHub rejecting the JWT — read the message body |
+| `git push` → `remote: invalid credentials` | token used as Bearer header instead of Basic auth — use the askpass recipe above, not `http.extraHeader` |
+| API says no permission but push works (or vice versa) | see the warning above — trust the actual operation, not `permissions` fields |
 
 ## Security notes
 
