@@ -10,8 +10,8 @@ can reach omlx. No dependency on any other repository.
 
 | File | Purpose |
 |---|---|
-| `src/auth.mjs` | App JWT (RS256, 540 s) → installation token; in-memory cache; one re-mint on 401 |
-| `src/github.mjs` | Thin REST helpers (list issues, comments, post) |
+| `src/auth.mjs` | GitHub App auth via `@octokit/auth-app` — JWT, token mint/cache, 401 handling |
+| `src/github.mjs` | Thin REST helpers on Octokit (list issues, comments, post) |
 | `src/llm.mjs` | omlx client (`/v1/chat/completions`), prompt builder |
 | `src/bot.mjs` | One round: skip-check → LLM → post. `DRY_RUN=1` prints instead of posting |
 | `run.sh` | **The cron target.** Loads `.env`, checks credentials, flock guard, runs one round |
@@ -59,5 +59,5 @@ node src/verify-auth.mjs   # live auth-chain check, no side effects
 
 - Missing credentials → non-zero exit, message names the missing item.
 - omlx unreachable / non-2xx → issue counted as failed, round exits non-zero; **no** placeholder comment is ever posted.
-- GitHub 401 → one re-mint + retry; second 401 aborts the round.
+- GitHub 401 → one retry (token replication delay, within 5 s of mint); a persistent 401 or an expired token aborts the round (tokens re-mint on expiry).
 - One issue failing never stops the others, but the round still exits non-zero.

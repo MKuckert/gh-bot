@@ -63,7 +63,7 @@ shell only. Alternatively, configure a credential helper that reads
 |---|---|
 | `env.sh: missing env var(s): GH_APP_ID …` (exit 1) | `.env` absent or incomplete at repo root |
 | `env.sh: missing key.pem` (exit 1) | private key not in place |
-| `AppAuth: token mint failed (HTTP 401): …` (exit 1) | key/ID mismatch, clock skew, or GitHub rejecting the JWT — read the body |
+| octokit `HttpError` / 401 on mint (exit 1) | key/ID mismatch, clock skew, or GitHub rejecting the JWT — read the message body |
 
 ## Security notes
 

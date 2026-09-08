@@ -1,15 +1,17 @@
-import jwt from "jsonwebtoken";
-import { readFileSync } from "node:fs";
+// verify-auth.mjs — live end-to-end auth check (token mint, repos, issue read).
+// No side effects. Needs GH_APP_ID, GH_INSTALLATION_ID in env and key.pem at repo root.
+import { createGitHubAppAuth } from "./auth.mjs";
 
-const pem = readFileSync("key.pem", "utf8");
+const auth = createGitHubAppAuth({
+  appId: process.env.GH_APP_ID,
+  installationId: process.env.GH_INSTALLATION_ID,
+  pemPath: "key.pem",
+});
+
+const { token, expiresAt } = await auth({ type: "installation" });
+console.log(`token minted: ${token.slice(0, 10)}… valid until ${new Date(expiresAt).toISOString()}`);
+
 const H = { Accept: "application/vnd.github+json", "User-Agent": "gh-integration-bot" };
-const appJwt = jwt.sign({}, pem, { algorithm: "RS256", issuer: process.env.GH_APP_ID, expiresIn: 540 });
-const res = await fetch(
-  `https://api.github.com/app/installations/${process.env.GH_INSTALLATION_ID}/access_tokens`,
-  { method: "POST", headers: { ...H, Authorization: `Bearer ${appJwt}` } },
-);
-const { token } = await res.json();
-
 for (const path of ["/installation/repositories", "/repos/MKuckert/env/issues?state=open&per_page=100"]) {
   const r = await fetch(`https://api.github.com${path}`, { headers: { ...H, Authorization: `Bearer ${token}` } });
   const body = await r.text();
