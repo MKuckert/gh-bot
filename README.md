@@ -113,3 +113,9 @@ schedule that starts each round with `docker exec -u root <container> /workspace
 - **Fail-loud everywhere:** missing credentials, failed clones, failed agent runs and
   posting errors are logged with the issue number; the round exits non-zero so cron's
   log shows it.
+
+## Attribution
+
+The source code of this bot was developed by a local **qwen3.8-27B** model
+(`omlx/qwen3.8-27B-oQ4e`), driven through the pi coding agent — the same
+harness the bot itself uses at runtime.
