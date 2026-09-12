@@ -1,65 +1,115 @@
-# gh-bot — overcommit-bot runbook
+# overcommit-bot
 
-Periodic research bot (standalone): reads open issues from a target repo
-(default `MKuckert/env`, override with `GH_REPO`), generates a research comment
-with the local LLM (OpenAI-compatible model API), posts it as `overcommit-bot [bot]`
-via a GitHub App installation token. Runs **locally in the sandbox** — that is
-the point, so it can reach the local model. No dependency on any other repository.
+A self-contained, cron-triggered GitHub bot that acts on **the repo owner's comments** in open issues of a target repository. It has two verticals, both powered by a **headless pi agent** running in a fresh clone of the repo as an unprivileged user:
+
+| Vertical | Trigger (always the issue's **last** comment, and only if authored by the owner) | What happens |
+|---|---|---|
+| **Research** | last comment without a trigger phrase | The agent gets the issue + full thread, follows the owner's explicit instructions if there are any — otherwise researches (code + web) and posts its findings |
+| **PR review** | comment containing `@overcommit-bot review` | Linked PRs (cross-references / Development section) are cloned at their head commit; the agent reviews diff + code and posts on **the PR**. Re-triggering re-reviews: the bot's previous review is fed back in so it reports which points are addressed |
+
+## Security model
+
+The bot reads public issue content that anyone can write — prompt injection is the
+primary threat. Defense in depth:
+
+1. **Author gate** — only comments authored by `BOT_OWNER` (default `mkuckert`)
+   trigger anything. All other issue/PR content is *data*, never instructions; the
+   system prompt tells the agent to ignore imperative text in untrusted content.
+2. **Unprivileged agent user** — the pi agent runs as `botagent` (via `runuser`),
+   a dedicated system user with no shell, no home and a private pi config. It can
+   read only its fresh clone and public system files — never `/workspace`, the live
+   agent's home (`/home/node/.pi` is locked 700), `.env` or `key.pem`. Even a fully
+   injected agent has nothing to exfiltrate, and it runs with a minimal environment
+   (no bot config at all).
+3. **Strict tool allowlists** (`pi --tools`) — research: `read,web_search,web_fetch`;
+   review: `read` only. No bash, no writes, ever; nothing from issue content is
+   built, run or applied. The PR diff is computed orchestrator-side (our git code)
+   and injected into the prompt.
+4. **Explicit opt-in per issue** — an untouched issue is never touched; the owner
+   must comment on it at least once.
+
+## How a round works
+
+1. `run.sh` (cron) → checks credentials, acquires an overlap lock, runs `node src/bot.mjs`.
+2. List open issues of the target repo (`GH_REPO`, default `MKuckert/env`).
+3. For each issue, fetch the **full** comment thread (paginated). No comments → skip.
+   Last comment not by the owner → skip.
+4. Research: clone the repo (main) → `runuser -u botagent pi -p …` with the research
+   prompt + tool allowlist → post the agent's output on the issue.
+5. Review: find linked PRs (timeline cross-references, open/merged) → clone each at
+   `pull/N/head` (detached) → compute diff vs base → run the read-only review agent
+   → post on the PR. No linked PRs → a short feedback comment on the issue.
+6. Post as the app with the `🤖 **[overcommit-bot]**` marker; per-issue failures are
+   logged and counted, the round exits non-zero if anything failed.
+
+The bot never posts placeholder or fabricated content: a failed agent run (non-zero
+exit, empty output, timeout) is counted as failed and nothing is posted for that issue.
 
 ## Layout
 
-| File | Purpose |
-|---|---|
-| `src/auth.mjs` | GitHub App auth via `@octokit/auth-app` — JWT, token mint/cache, 401 handling |
-| `src/github.mjs` | Thin REST helpers on Octokit (list issues, comments, post) |
-| `src/llm.mjs` | model client (`/v1/chat/completions`, OpenAI-compatible), prompt builder |
-| `prompts/bot_prompt.md` | user-prompt template (edit to change the comment style) |
-| `prompts/system.md` | system prompt sent with every request |
-| `src/bot.mjs` | One round: skip-check → LLM → post. `DRY_RUN=1` prints instead of posting |
-| `run.sh` | **The cron target.** Loads `.env`, checks credentials, flock guard, runs one round |
-| `token.sh` | Prints a fresh installation token (≤ 1 h) to stdout — for git/gh in other sessions |
-| `lib/env.sh` | Shared bootstrap for the shell entry points: loads `.env`, checks credentials, exports `KEY_PATH` |
-| `src/verify-auth.mjs` | Live end-to-end auth check (app metadata, token mint, issue read) |
-| `src/*.test.mjs` | Unit tests — `node --test` at the repo root |
-| `docs/cron.md`, `docs/token.md` | Usage guides for the cron target and token minting |
-| `plans/2026-09-07-initial.md` | Archived original plan |
-
-## Credentials (all gitignored)
-
-- `.env` at repo root: `GH_APP_ID`, `GH_INSTALLATION_ID`, `MODEL_BASE_URL`, `MODEL_NAME`, `MODEL_API_KEY`
-- `key.pem` at repo root: app private key (chmod 600)
-- model API key: `MODEL_API_KEY` in `.env` (standalone — no external settings file needed)
-
-## Scheduling (cron)
-
-Hourly cron entry, overlap guard, exit codes and manual operation:
-**[`docs/cron.md`](docs/cron.md)**.
-
-## Tokens for other sessions
-
-`token.sh` mints an ephemeral installation token (≤ 1 h) for git/gh in other
-sessions — output contract, re-minting and security notes:
-**[`docs/token.md`](docs/token.md)**.
-
-## Operations
-
-```bash
-cd /workspace/gh-bot
-node --test            # unit tests
-./run.sh               # one real round (posts)
-DRY_RUN=1 ./run.sh     # one dry round (prints, no posts)
-node src/verify-auth.mjs   # live auth-chain check, no side effects
+```
+run.sh                     # cron entry point: env + overlap lock + node src/bot.mjs
+lib/env.sh                 # shared bootstrap (cd root, load .env, fail loud)
+scripts/setup-agent-user.sh# idempotent; run.sh runs it automatically if botagent/config is missing
+key.pem                    # GitHub App private key (gitignored; never in .env)
+.env                       # GH_APP_ID, GH_INSTALLATION_ID, BOT_OWNER, PI_*, AGENT_* (gitignored)
+src/auth.mjs               # app JWT → installation token, cached until ~exp, 401 retry
+src/github.mjs             # REST helpers: issues, comments (paginated), linked PRs, posting
+src/git.mjs                # clone w/ askpass token indirection, PR head checkout, PR diff
+src/pi.mjs                 # headless pi runner (runuser isolation, tool allowlist, timeout)
+src/prompts.mjs            # template loading + prompt builders (research / review)
+src/bot.mjs                # round orchestration + main block
+prompts/system.md          # system-prompt addendum: posting rules + untrusted-content policy
+prompts/bot_prompt.md      # research vertical prompt
+prompts/review_prompt.md   # review vertical prompt (diff + previous review)
+*.test.mjs                 # node --test suites (auth, bot, github, git, pi)
+docs/token.md              # how to mint a temporary installation token (token.sh)
+docs/cron.md               # installing/operating the cron entry
 ```
 
-- **Logs:** `~/.local/state/overcommit-bot/cron.log` (cron) — round summary lines start with `[overcommit-bot]`.
-- **Skip logic:** an issue is skipped when its *last* comment's author login ends with `[bot]` (any bot). The posted marker `🤖 **[overcommit-bot]**` is a human-readable fallback, not the skip mechanism.
-- **Disable:** remove the cron line. Nothing else to stop (no daemon).
-- **Key regeneration:** GitHub App settings → Private keys → Generate; replace `key.pem` (chmod 600). Old key stays valid until deleted.
-- **Rate limits:** installation tokens get 5000 req/h; one round is ~2 calls per issue.
+## Configuration (`.env`)
 
-## Failure policy (fail loud, never fake)
+| Var | Meaning |
+|---|---|
+| `GH_APP_ID` / `GH_INSTALLATION_ID` | GitHub App + installation (required) |
+| `BOT_OWNER` | login that may trigger the bot (default `mkuckert`) |
+| `BOT_LOGIN` | the app's real GitHub login (default `overcommit-app[bot]`; finds its own comments) |
+| `PI_PROVIDER` / `PI_MODEL` | pi model (default `omlx/qwen3.8-27B-oQ4e`, local endpoint) |
+| `AGENT_USER` / `AGENT_HOME` | unprivileged agent user + its home (default `botagent` / `/var/lib/overcommit`) |
+| `PI_BIN` | path to the pi binary (default `pi` on PATH) |
+| `GH_REPO` | target repo override (default `MKuckert/env`) |
 
-- Missing credentials → non-zero exit, message names the missing item.
-- model unreachable / non-2xx → issue counted as failed, round exits non-zero; **no** placeholder comment is ever posted.
-- GitHub 401 → one retry (token replication delay, within 5 s of mint); a persistent 401 or an expired token aborts the round (tokens re-mint on expiry).
-- One issue failing never stops the others, but the round still exits non-zero.
+The model endpoint itself is configured in the agent's `models.json` (copied by
+`setup-agent-user.sh`) — no model credentials in `.env`.
+
+## Usage
+
+```bash
+# one-time (root): provision the unprivileged agent user + private pi config
+scripts/setup-agent-user.sh
+
+./run.sh              # one real round (posts comments)
+DRY_RUN=1 ./run.sh    # dry round: prints would-be prompts, posts/clones/runs nothing
+
+node --test           # unit tests (no network, no posting)
+token.sh              # print a temporary installation token for manual git/gh work
+```
+
+Install the cron entry as described in [docs/cron.md](docs/cron.md) — host-side
+schedule that starts each round with `docker exec -u root <container> /workspace/gh-bot/run.sh`.
+
+## Design notes
+
+- **Why the owner's *last* comment is the trigger:** it makes every owner comment an
+  explicit assignment — a reply "pokes" the bot, and its output always responds to
+  the freshest instruction. Non-owner activity (discussions, bot comments) never
+  triggers anything. After the bot posts, the last comment is its own, so the round
+  self-terminates — a failed run simply retries next hour until it succeeds.
+- **Why `@overcommit-bot review` is a plain-text phrase:** GitHub App accounts cannot
+  be @-mentioned, so the phrase is scanned in the owner's comment body.
+- **Why pi instead of a raw model call:** the agent can navigate the checkout, run
+  read-only inspection and use web search — with all of that confined to an
+  unprivileged user and a strict tool allowlist.
+- **Fail-loud everywhere:** missing credentials, failed clones, failed agent runs and
+  posting errors are logged with the issue number; the round exits non-zero so cron's
+  log shows it.
