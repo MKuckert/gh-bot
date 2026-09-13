@@ -26,6 +26,37 @@ if ! flock -n 9; then
     exit 0
 fi
 
+# Self-update: pull the latest bot code so a remote push deploys on the next
+# tick. Token via askpass (never written to disk — the helper echoes
+# $GITHUB_TOKEN at call time); --ff-only; skip when the tree is dirty (local
+# changes win — we never clobber them); on any failure warn and continue with
+# the current code (next tick retries).
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo "run.sh: not a git checkout — skipping self-update" >&2
+elif ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "run.sh: working tree dirty — skipping self-update" >&2
+else
+    before=$(git rev-parse HEAD)
+    if TOK=$(./token.sh); then
+        printf '#!/bin/sh\necho "$GITHUB_TOKEN"\n' > .askpass.sh
+        chmod 700 .askpass.sh
+        if GITHUB_TOKEN="$TOK" GIT_ASKPASS="$PWD/.askpass.sh" \
+           git -c credential.helper= pull --ff-only; then
+            after=$(git rev-parse HEAD)
+            rm -f .askpass.sh
+            if [[ "$after" != "$before" ]]; then
+                echo "run.sh: updated $before..$after — re-executing with new code" >&2
+                exec bash "$0" "$@"
+            fi
+        else
+            rm -f .askpass.sh
+            echo "run.sh: self-update failed — continuing with current code" >&2
+        fi
+    else
+        echo "run.sh: could not mint a token — skipping self-update" >&2
+    fi
+fi
+
 # Sweep workdirs left by a round that died (hard kill / OOM): we hold the lock,
 # so anything here belongs to a dead round. The 60-min age guard protects
 # concurrent unprivileged dev runs, which fall back to a per-user lock.

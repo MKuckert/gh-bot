@@ -52,12 +52,16 @@ there is no daemon or state to stop.
 1. `run.sh` sets PATH (incl. `/usr/sbin` for `runuser`), cd's to the repo root, sources `.env`.
 2. Missing `GH_APP_ID`/`GH_INSTALLATION_ID`/`key.pem` → **exit 1** with a message naming the missing item (visible in `cron.log`).
 3. **Overlap guard:** if a previous round still holds `/var/lib/overcommit-bot/round.lock`, this tick logs "previous round still running — skipping" and exits 0. (A 27B local run can outlive an hourly tick; the lock prevents double-posting.)
-4. **Stale sweep:** workdirs in `/tmp/overcommit-*` untouched for 60+ minutes (left by a killed round) are removed.
-5. **Self-heal:** if the `botagent` user or its pi config is missing (e.g. after a container recreation), `scripts/setup-agent-user.sh` runs first; a setup failure aborts the round with exit 1.
-6. `node src/bot.mjs` runs the round; per triggered issue: clone (agent user's
+4. **Self-update:** the round pulls its own repository (`--ff-only`, token via askpass)
+   so a push to GitHub deploys on the next tick. A dirty tree or pull failure is
+   logged and the round continues with the current code; if new code arrived, the
+   script re-executes itself (bash cannot safely keep reading a modified script).
+5. **Stale sweep:** workdirs in `/tmp/overcommit-*` untouched for 60+ minutes (left by a killed round) are removed.
+6. **Self-heal:** if the `botagent` user or its pi config is missing (e.g. after a container recreation), `scripts/setup-agent-user.sh` runs first; a setup failure aborts the round with exit 1.
+7. `node src/bot.mjs` runs the round; per triggered issue: clone (agent user's
    workdir) → `runuser -u botagent pi -p …` with a strict tool allowlist
    (research: `read,web_search,web_fetch`; review: `read`) → post.
-7. Round summary is logged, e.g.:
+8. Round summary is logged, e.g.:
    `[overcommit-bot] round done: 2 posted, 3 skipped, 0 failed`
 
 ## Exit codes and logs
@@ -68,6 +72,8 @@ there is no daemon or state to stop.
 | Some issues failed (agent run failed, timeout) | 1 | `ERROR #<n>: <reason>` per issue; other issues still processed |
 | Cannot even list issues (auth, network) | 1 | `ERROR: cannot list open issues: …` |
 | Previous round still running | 0 | `previous round still running — skipping this tick` |
+| Self-update failed (pull/token) | 0 (round continues) | `run.sh: self-update failed — continuing with current code` |
+| Code updated, re-exec | 0 | `run.sh: updated <sha>..<sha> — re-executing with new code` |
 | Missing credentials | 1 | `env.sh: missing …` |
 | Agent setup failed (self-heal) | 1 | `run.sh: agent setup failed` |
 

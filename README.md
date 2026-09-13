@@ -98,6 +98,9 @@ token.sh              # print a temporary installation token for manual git/gh w
 Install the cron entry as described in [docs/cron.md](docs/cron.md) — host-side
 schedule that starts each round with `docker exec -u root <container> /workspace/gh-bot/run.sh`.
 
+**Deployments self-update:** each round first pulls this repository, so pushing a
+change to GitHub deploys it on the next tick — no manual container work needed.
+
 ## Design notes
 
 - **Why the owner's *last* comment is the trigger:** it makes every owner comment an
