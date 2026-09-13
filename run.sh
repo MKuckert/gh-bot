@@ -41,7 +41,7 @@ else
         printf '#!/bin/sh\necho "$GITHUB_TOKEN"\n' > .askpass.sh
         chmod 700 .askpass.sh
         if GITHUB_TOKEN="$TOK" GIT_ASKPASS="$PWD/.askpass.sh" \
-           git -c credential.helper= pull --ff-only; then
+           git -c credential.helper= pull --ff-only origin HEAD; then
             after=$(git rev-parse HEAD)
             rm -f .askpass.sh
             if [[ "$after" != "$before" ]]; then
