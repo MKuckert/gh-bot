@@ -123,3 +123,4 @@ The source code of this bot was developed by a local **qwen3.8-27B** model
 (`omlx/qwen3.8-27B-oQ4e`), driven through the pi coding agent — the same
 harness the bot itself uses at runtime.
 self-update test
+canary 2
